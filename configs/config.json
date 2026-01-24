@@ -1,0 +1,11 @@
+{
+    "db": {
+        "provider": "postgres",
+        "host": "localhost",
+        "port": 5432,
+        "user": "root",
+        "password": "root",
+        "dbname": "todolist123",
+        "sslmode": "disable"
+    }
+}
