@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package todos.v1;
+
+import "buf/validate/validate.proto";
+
+option go_package = "todolist/gen/protos/todos/v1;todosv1";
+
+service TodosService {
+  rpc Create(CreateRequest) returns (CreateResponse);
+  rpc Get(GetRequest) returns (GetResponse);
+  rpc Update(UpdateRequest) returns (UpdateResponse);
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+  rpc List(ListRequest) returns (ListResponse);
+}
+
+message Todo {
+  string id = 1;
+  string title = 2;
+  bool completed = 3;
+}
+
+message CreateRequest {
+  string title = 1 [
+    (buf.validate.field).string = {
+      min_len: 1,
+      max_len: 255
+    }
+  ];
+}
+
+message CreateResponse {
+  Todo todo = 1;
+}
+
+message GetRequest {
+  string id = 1 [
+    (buf.validate.field).string.uuid = true
+  ];
+}
+
+message GetResponse {
+  Todo todo = 1;
+}
+
+message ListRequest {}
+
+message ListResponse {
+  repeated Todo todos = 1;
+}
+
+message DeleteRequest {
+  string id = 1 [
+    (buf.validate.field).string.uuid = true
+  ];
+}
+
+message DeleteResponse {}
+
+message UpdateRequest {
+  string id = 1 [
+    (buf.validate.field).string.uuid = true
+  ];
+  string title = 2 [
+    (buf.validate.field).string = {
+      min_len: 1,
+      max_len: 255
+    }
+  ];
+  bool completed = 3;
+}
+
+message UpdateResponse {
+  Todo todo = 1;
+}
