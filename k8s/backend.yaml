@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: todos-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: todos-backend
+  template:
+    metadata:
+      labels:
+        app: todos-backend
+    spec:
+      containers:
+      - name: backend
+        image: haakaash/todos-backend:v3
+        imagePullPolicy: Always
+        env:
+          - name: DB_PROVIDER
+            value: postgres
+          - name: DB_HOST
+            # value: postgres-svc
+            value: postgres-0.postgres-svc.todos-app.svc.cluster.local
+          - name: DB_PORT
+            value: "5432"
+          - name: DB_USER
+            value: todosuser
+          - name: DB_PASSWORD
+            value: todospassword
+          - name: DB_NAME
+            value: todosdb
+          - name: DB_SSLMODE
+            value: disable
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: todos-app
+spec:
+  type: ClusterIP
+  selector:
+    app: todos-backend
+  ports:
+    - port: 8080
+      targetPort: 8080

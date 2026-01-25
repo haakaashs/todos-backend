@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	configs "github.com/haakaashs/todos-backend/internal/configs"
@@ -58,55 +59,70 @@ func ensureTables(db *sql.DB) error {
 	return nil
 }
 
-// Prerequisite connects to Postgres, ensures database and tables exist, with retries
+// Prerequisite ensures database and tables exist
 func prerequisite(db *sql.DB) {
-	for i := 1; i <= maxRetries; i++ {
-		err := ensureDatabase(db)
-		if err != nil {
-			log.Printf("Attempt %d/%d: Waiting for Postgres to be ready... (%v)", i, maxRetries, err)
-			time.Sleep(retryInterval)
-			continue
-		}
-
-		err = ensureTables(db)
-		if err != nil {
-			log.Printf("Attempt %d/%d: Waiting for tables to be creatable... (%v)", i, maxRetries, err)
-			time.Sleep(retryInterval)
-			continue
-		}
-
-		log.Println("Database and tables ready")
-		return
+	err := ensureDatabase(db)
+	if err != nil {
+		log.Default().Fatalf("Failed to ensure database exists: %v", err)
 	}
 
-	log.Fatal("Failed to ensure database and tables after maximum retries")
+	err = ensureTables(db)
+	if err != nil {
+		log.Default().Fatalf("Failed to ensure tables exist: %v", err)
+	}
+
+	log.Println("Database and tables ready")
 }
 
-// getDSN constructs the Data Source Name for connecting to Database
+// getDSN constructs the DSN for connecting to the default "postgres" database
 func getDSN(config *configs.Config) string {
-	return fmt.Sprintf("host=%s port=%d user=%s password=%s sslmode=%s",
+	// Connect to default "postgres" database to create the target DB
+	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		config.DB.Host,
 		config.DB.Port,
 		config.DB.User,
 		config.DB.Password,
+		config.DB.DBName,
 		config.DB.SSLMode,
 	)
 }
 
-// InitializeDB initializes the database connection
 func InitializeDB() *sql.DB {
-
 	config = configs.LoadConfig()
-	db, err := sql.Open(config.DB.Provider, getDSN(config))
+
+	// Step 1: connect to default DB (postgres)
+	log.Default().Println("AdminDSN", getDSN(config))
+	adminDB, err := sql.Open(config.DB.Provider, getDSN(config))
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	// wait until the DB is ready
+	for range maxRetries {
+		if err := adminDB.Ping(); err == nil {
+			log.Println("Connected to Postgres for DB creation")
+			break
+		}
+		log.Printf("Waiting for Postgres to be ready... (%v)", err)
+		time.Sleep(retryInterval)
+	}
+
+	// Step 2: ensure target database exists
+	config.DB.DBName = os.Getenv("DB_NAME")
+	prerequisite(adminDB)
+	defer adminDB.Close()
+
+	// Step 3: now connect to the actual database
+	log.Default().Println("AppDSN", getDSN(config))
+	db, err := sql.Open(config.DB.Provider, getDSN(config))
+	if err != nil {
+		log.Fatal(err)
+	}
 	if err := db.Ping(); err != nil {
 		log.Fatal(err)
 	}
 
-	log.Println("Connected to Database successfully")
-	prerequisite(db)
+	log.Println("Connected to target database successfully")
+	ensureTables(db)
 	return db
 }

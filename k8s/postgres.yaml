@@ -1,0 +1,61 @@
+# DATABASE (Stateful)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: db-pvc
+  namespace: todos-app
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: todos-app
+spec:
+  serviceName: postgres-svc
+  replicas: 1
+  selector:
+    matchLabels:
+      app: todos-postgres
+  template:
+    metadata:
+      labels:
+        app: todos-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:18-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: todosdb
+            - name: POSTGRES_USER
+              value: todosuser
+            - name: POSTGRES_PASSWORD
+              value: todospassword
+          volumeMounts:
+            - name: db-storage
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: db-storage
+          persistentVolumeClaim:
+            claimName: db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-svc
+  namespace: todos-app
+spec:
+  clusterIP: None
+  selector:
+    app: todos-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
