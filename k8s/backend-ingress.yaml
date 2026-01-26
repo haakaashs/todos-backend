@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-ingress
+  namespace: todos-app
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    # Explicitly allow OPTIONS if Traefik is stripping it
+    traefik.ingress.kubernetes.io/service.serversscheme: http
+spec:
+  rules:
+  - host: api.todos.localhost
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 8080

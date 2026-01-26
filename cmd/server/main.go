@@ -24,25 +24,46 @@ func main() {
 	}
 
 	// Create service handler
-	handler := handler.NewTodosServiceHandler(service.NewTodosService(repo))
+	todosHandler := handler.NewTodosServiceHandler(service.NewTodosService(repo))
 
 	// Get Connect handler
-	path, h := gen.NewTodosServiceHandler(handler, connect.WithInterceptors(validate.NewInterceptor()))
+	path, h := gen.NewTodosServiceHandler(todosHandler, connect.WithInterceptors(validate.NewInterceptor()))
 
 	// Register HTTP handlers
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
 
-	// CORS (optional, for browser JSON requests)
-	handlerWithCORS := cors.AllowAll().Handler(mux)
+	// Specialized CORS Configuration
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"http://todos.localhost", "http://localhost:3000"},
+		AllowedMethods: []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders: []string{
+			"Connect-Protocol-Version",
+			"Content-Type",
+			"Connect-Timeout-Ms",
+			"Authorization",
+		},
+		ExposedHeaders: []string{
+			"Grpc-Status",
+			"Grpc-Message",
+			"Grpc-Status-Details-Bin",
+		},
+		// Prevents the 404 by returning 200 to OPTIONS requests
+		OptionsPassthrough: false,
+	})
 
-	// Wrap with HTTP/2 cleartext (h2c)
+	// Wrap with CORS
+	handlerWithCORS := c.Handler(mux)
+
+	// IMPORTANT: Ensure h2c is the OUTSIDE wrapper
 	h2Server := &http2.Server{}
+	mainHandler := h2c.NewHandler(handlerWithCORS, h2Server)
+
 	server := &http.Server{
 		Addr:    ":8080",
-		Handler: h2c.NewHandler(handlerWithCORS, h2Server),
+		Handler: mainHandler,
 	}
 
-	log.Println("Backend listening on :8080 with HTTP/2 (h2c) support")
+	log.Println("Backend listening on :8080 with HTTP/2 (h2c) and specialized CORS support")
 	log.Fatal(server.ListenAndServe())
 }
