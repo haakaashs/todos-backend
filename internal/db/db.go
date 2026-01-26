@@ -91,7 +91,6 @@ func InitializeDB() *sql.DB {
 	config = configs.LoadConfig()
 
 	// Step 1: connect to default DB (postgres)
-	log.Default().Println("AdminDSN", getDSN(config))
 	adminDB, err := sql.Open(config.DB.Provider, getDSN(config))
 	if err != nil {
 		log.Fatal(err)
@@ -113,7 +112,6 @@ func InitializeDB() *sql.DB {
 	defer adminDB.Close()
 
 	// Step 3: now connect to the actual database
-	log.Default().Println("AppDSN", getDSN(config))
 	db, err := sql.Open(config.DB.Provider, getDSN(config))
 	if err != nil {
 		log.Fatal(err)
