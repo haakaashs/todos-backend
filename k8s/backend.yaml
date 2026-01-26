@@ -15,13 +15,12 @@ spec:
     spec:
       containers:
       - name: backend
-        image: haakaash/todos-backend:v3
+        image: haakaash/todos-backend:v3.0.2
         imagePullPolicy: Always
         env:
           - name: DB_PROVIDER
             value: postgres
           - name: DB_HOST
-            # value: postgres-svc
             value: postgres-0.postgres-svc.todos-app.svc.cluster.local
           - name: DB_PORT
             value: "5432"
