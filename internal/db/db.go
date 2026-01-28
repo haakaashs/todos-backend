@@ -90,7 +90,7 @@ func getDSN(config *configs.Config) string {
 func InitializeDB() *sql.DB {
 	config = configs.LoadConfig()
 
-	// Step 1: connect to default DB (postgres)
+	// connect to default DB
 	adminDB, err := sql.Open(config.DB.Provider, getDSN(config))
 	if err != nil {
 		log.Fatal(err)
@@ -106,7 +106,7 @@ func InitializeDB() *sql.DB {
 		time.Sleep(retryInterval)
 	}
 
-	// Step 2: ensure target database exists
+	// ensure target database exists
 	config.DB.DBName = os.Getenv("DB_NAME")
 	prerequisite(adminDB)
 	defer adminDB.Close()

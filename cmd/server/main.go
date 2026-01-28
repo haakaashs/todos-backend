@@ -17,8 +17,10 @@ import (
 )
 
 func main() {
+
 	// Initialize DB
-	repo, err := repository.NewRepository(db.InitializeDB())
+	dbConn := db.InitializeDB()
+	repo, err := repository.NewRepository(dbConn)
 	if err != nil {
 		log.Fatal("Failed to initialize repository:", err)
 	}
@@ -29,11 +31,19 @@ func main() {
 	// Get Connect handler
 	path, h := gen.NewTodosServiceHandler(todosHandler, connect.WithInterceptors(validate.NewInterceptor()))
 
-	// Register HTTP handlers
+	// new mux server
 	mux := http.NewServeMux()
+
+	// Register probe health check
+	mux.HandleFunc("/health", handler.HealthHandler)
+
+	// Register probe readiness check
+	mux.HandleFunc("/ready", handler.ReadyHandler(dbConn))
+
+	// Register connectRPC handler
 	mux.Handle(path, h)
 
-	// Specialized CORS Configuration
+	// CORS Configuration helps UI from diff pod access the backend
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"http://todos.localhost", "http://localhost:3000"},
 		AllowedMethods: []string{"GET", "POST", "OPTIONS"},
@@ -48,22 +58,24 @@ func main() {
 			"Grpc-Message",
 			"Grpc-Status-Details-Bin",
 		},
-		// Prevents the 404 by returning 200 to OPTIONS requests
 		OptionsPassthrough: false,
 	})
 
-	// Wrap with CORS
+	// CORS handler wraper
 	handlerWithCORS := c.Handler(mux)
 
-	// IMPORTANT: Ensure h2c is the OUTSIDE wrapper
+	// h2c wraper for using http2 server helps to serve http2 requests
 	h2Server := &http2.Server{}
 	mainHandler := h2c.NewHandler(handlerWithCORS, h2Server)
 
+	// Create serve
 	server := &http.Server{
 		Addr:    ":8080",
 		Handler: mainHandler,
 	}
 
-	log.Println("Backend listening on :8080 with HTTP/2 (h2c) and specialized CORS support")
+	log.Println("Backend listening on :8080 with HTTP/2 (h2c) with CORS support")
+
+	// Listen & serve
 	log.Fatal(server.ListenAndServe())
 }
